@@ -17,6 +17,16 @@ DEFAULT_DETECTION_REGION = (500, 180, 1400, 280)
 
 # // 預設按鈕位置
 DEFAULT_BUTTON_REGION = (1375, 655, 1375, 655)
+# // 預設登入按鈕位置
+DEFAULT_LOGIN_BUTTON_REGION = DEFAULT_BUTTON_REGION
+# // 預設選角色按鈕位置
+DEFAULT_CHAR_BUTTON_REGION = DEFAULT_BUTTON_REGION
+# // 預設目錄按鈕位置
+DEFAULT_MENU_BUTTON_REGION = DEFAULT_BUTTON_REGION
+# // 預設隨機組隊按鈕位置
+DEFAULT_RANDOM_BUTTON_REGION = DEFAULT_BUTTON_REGION
+# // 預設確認按鈕位置
+DEFAULT_CONFIRM_BUTTON_REGION = DEFAULT_BUTTON_REGION
 
 # // 預設偵測間隔
 DEFAULT_INTERVAL = "5"
@@ -47,14 +57,16 @@ class DetectBossApp:
             tk.Entry(_region_frame, textvariable=_var, width=5).pack(side=tk.LEFT)
         tk.Button(_region_frame, text="拖曳設定", command=self.select_detection_region).pack(side=tk.LEFT, padx=5)
 
-        # // 按鈕點擊區域輸入框
-        _btn_frame = tk.Frame(iRoot)
-        _btn_frame.pack(pady=5)
-        tk.Label(_btn_frame, text="按鈕區域 x1 y1 x2 y2:").pack(side=tk.LEFT)
-        self.btn_vars = [tk.StringVar(value=str(v)) for v in DEFAULT_BUTTON_REGION]
-        for _var in self.btn_vars:
-            tk.Entry(_btn_frame, textvariable=_var, width=5).pack(side=tk.LEFT)
-        tk.Button(_btn_frame, text="拖曳設定", command=self.select_button_region).pack(side=tk.LEFT, padx=5)
+        # // 登入按鈕設定
+        self.login_btn_vars = self.create_button_inputs(iRoot, "登入", DEFAULT_LOGIN_BUTTON_REGION)
+        # // 選角色按鈕設定
+        self.char_btn_vars = self.create_button_inputs(iRoot, "選角色", DEFAULT_CHAR_BUTTON_REGION)
+        # // 目錄按鈕設定
+        self.menu_btn_vars = self.create_button_inputs(iRoot, "目錄", DEFAULT_MENU_BUTTON_REGION)
+        # // 隨機組隊按鈕設定
+        self.random_btn_vars = self.create_button_inputs(iRoot, "隨機組隊", DEFAULT_RANDOM_BUTTON_REGION)
+        # // 確認按鈕設定
+        self.confirm_btn_vars = self.create_button_inputs(iRoot, "確認", DEFAULT_CONFIRM_BUTTON_REGION)
 
         # // 偵測間隔設定
         _interval_frame = tk.Frame(iRoot)
@@ -90,6 +102,17 @@ class DetectBossApp:
         _x, _y = pyautogui.position()
         self.pos_label.config(text=f"Mouse: ({_x}, {_y})")
         self.root.after(100, self.update_mouse_pos)
+
+    def create_button_inputs(self, iRoot, iLabel, iDefault):
+        # // 建立按鈕區域輸入框
+        _frame = tk.Frame(iRoot)
+        _frame.pack(pady=5)
+        tk.Label(_frame, text=f"{iLabel} x1 y1 x2 y2:").pack(side=tk.LEFT)
+        _vars = [tk.StringVar(value=str(v)) for v in iDefault]
+        for _var in _vars:
+            tk.Entry(_frame, textvariable=_var, width=5).pack(side=tk.LEFT)
+        tk.Button(_frame, text="拖曳設定", command=lambda: self.select_button_region(_vars)).pack(side=tk.LEFT, padx=5)
+        return _vars
 
     def select_region(self, iCallback):
         self.root.withdraw()
@@ -138,18 +161,28 @@ class DetectBossApp:
 
         self.select_region(_callback)
 
-    def select_button_region(self):
+    def select_button_region(self, iVars):
         def _callback(iX1, iY1, iX2, iY2):
             _values = [iX1, iY1, iX2, iY2]
-            for _var, _val in zip(self.btn_vars, _values):
+            for _var, _val in zip(iVars, _values):
                 _var.set(str(int(_val)))
 
         self.select_region(_callback)
 
+    def click_center(self, iRegion):
+        # // 點擊區域中心
+        _cx = (iRegion[0] + iRegion[2]) // 2
+        _cy = (iRegion[1] + iRegion[3]) // 2
+        pyautogui.click(_cx, _cy)
+
     def start_detection(self):
         if not self.running:
             self.detection_region = tuple(int(_v.get()) for _v in self.region_vars)
-            self.button_region = tuple(int(_v.get()) for _v in self.btn_vars)
+            self.login_button = tuple(int(_v.get()) for _v in self.login_btn_vars)
+            self.char_button = tuple(int(_v.get()) for _v in self.char_btn_vars)
+            self.menu_button = tuple(int(_v.get()) for _v in self.menu_btn_vars)
+            self.random_button = tuple(int(_v.get()) for _v in self.random_btn_vars)
+            self.confirm_button = tuple(int(_v.get()) for _v in self.confirm_btn_vars)
             try:
                 self.interval = max(1, int(self.interval_var.get()))
             except ValueError:
@@ -170,7 +203,14 @@ class DetectBossApp:
             self.log("停止偵測")
 
     def detect_loop(self):
+        _first = True
         while self.running:
+            if _first:
+                self.click_center(self.login_button)
+                time.sleep(1)
+                self.click_center(self.char_button)
+                _first = False
+
             _img = ImageGrab.grab(bbox=self.detection_region)
             _text = pytesseract.image_to_string(_img, lang='chi_tra')
             self.log(f"OCR: {_text.strip()}")
@@ -180,9 +220,11 @@ class DetectBossApp:
                 winsound.PlaySound('SystemExclamation', winsound.SND_ALIAS)
                 messagebox.showinfo("通知", "偵測到菇菇王出現!")
             else:
-                _cx = (self.button_region[0] + self.button_region[2]) // 2
-                _cy = (self.button_region[1] + self.button_region[3]) // 2
-                pyautogui.click(_cx, _cy)
+                self.click_center(self.menu_button)
+                time.sleep(0.5)
+                self.click_center(self.random_button)
+                time.sleep(0.5)
+                self.click_center(self.confirm_button)
                 self.switch_count += 1
                 self.log(f"未發現王，執行換頻 {self.switch_count} 次")
 
