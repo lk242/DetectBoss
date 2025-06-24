@@ -8,141 +8,153 @@ import pytesseract
 import pyautogui
 import winsound
 
+# // 設定 tesseract 執行檔路徑
+TESSERACT_CMD = r"C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-# Set tesseract command path
-pytesseract.pytesseract.tesseract_cmd = r"C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+# // 預設偵測區域
+DEFAULT_DETECTION_REGION = (500, 180, 1400, 280)
+
+# // 預設按鈕位置
+DEFAULT_BUTTON_REGION = (1375, 655, 1375, 655)
+
+# // 預設偵測間隔
+DEFAULT_INTERVAL = "5"
+
+# // 預設關鍵字
+DEFAULT_KEYWORDS = "野生 菇菇王 出現"
 
 
 class DetectBossApp:
-    def __init__(self, root: tk.Tk):
-        self.root = root
+    def __init__(self, iRoot: tk.Tk):
+        self.root = iRoot
         self.root.title("Detect Boss")
 
         self.running = False
         self.switch_count = 0
 
-        # Display mouse position
-        self.pos_label = tk.Label(root, text="Mouse: (0, 0)")
+        # // 顯示滑鼠座標
+        self.pos_label = tk.Label(iRoot, text="Mouse: (0, 0)")
         self.pos_label.pack()
         self.update_mouse_pos()
 
-        # Detection region entries
-        region_frame = tk.Frame(root)
-        region_frame.pack(pady=5)
-        tk.Label(region_frame, text="偵測區域 x1 y1 x2 y2:").pack(side=tk.LEFT)
-        self.region_vars = [tk.StringVar(value=str(v)) for v in (500, 180, 1400, 280)]
-        for var in self.region_vars:
-            tk.Entry(region_frame, textvariable=var, width=5).pack(side=tk.LEFT)
-        tk.Button(region_frame, text="拖曳設定", command=self.select_detection_region).pack(side=tk.LEFT, padx=5)
+        # // 偵測區域輸入框
+        _region_frame = tk.Frame(iRoot)
+        _region_frame.pack(pady=5)
+        tk.Label(_region_frame, text="偵測區域 x1 y1 x2 y2:").pack(side=tk.LEFT)
+        self.region_vars = [tk.StringVar(value=str(v)) for v in DEFAULT_DETECTION_REGION]
+        for _var in self.region_vars:
+            tk.Entry(_region_frame, textvariable=_var, width=5).pack(side=tk.LEFT)
+        tk.Button(_region_frame, text="拖曳設定", command=self.select_detection_region).pack(side=tk.LEFT, padx=5)
 
-        # Button click region entries
-        btn_frame = tk.Frame(root)
-        btn_frame.pack(pady=5)
-        tk.Label(btn_frame, text="按鈕區域 x1 y1 x2 y2:").pack(side=tk.LEFT)
-        self.btn_vars = [tk.StringVar(value=str(v)) for v in (1375, 655, 1375, 655)]
-        for var in self.btn_vars:
-            tk.Entry(btn_frame, textvariable=var, width=5).pack(side=tk.LEFT)
-        tk.Button(btn_frame, text="拖曳設定", command=self.select_button_region).pack(side=tk.LEFT, padx=5)
+        # // 按鈕點擊區域輸入框
+        _btn_frame = tk.Frame(iRoot)
+        _btn_frame.pack(pady=5)
+        tk.Label(_btn_frame, text="按鈕區域 x1 y1 x2 y2:").pack(side=tk.LEFT)
+        self.btn_vars = [tk.StringVar(value=str(v)) for v in DEFAULT_BUTTON_REGION]
+        for _var in self.btn_vars:
+            tk.Entry(_btn_frame, textvariable=_var, width=5).pack(side=tk.LEFT)
+        tk.Button(_btn_frame, text="拖曳設定", command=self.select_button_region).pack(side=tk.LEFT, padx=5)
 
-        # Detection interval
-        interval_frame = tk.Frame(root)
-        interval_frame.pack(pady=5)
-        tk.Label(interval_frame, text="偵測間隔(秒):").pack(side=tk.LEFT)
-        self.interval_var = tk.StringVar(value="5")
-        tk.Entry(interval_frame, textvariable=self.interval_var, width=5).pack(side=tk.LEFT)
+        # // 偵測間隔設定
+        _interval_frame = tk.Frame(iRoot)
+        _interval_frame.pack(pady=5)
+        tk.Label(_interval_frame, text="偵測間隔(秒):").pack(side=tk.LEFT)
+        self.interval_var = tk.StringVar(value=DEFAULT_INTERVAL)
+        tk.Entry(_interval_frame, textvariable=self.interval_var, width=5).pack(side=tk.LEFT)
 
-        # Keywords
-        keywords_frame = tk.Frame(root)
-        keywords_frame.pack(pady=5)
-        tk.Label(keywords_frame, text="偵測文字(以空白分隔):").pack(side=tk.LEFT)
-        self.keywords_var = tk.StringVar(value="野生 菇菇王 出現")
-        tk.Entry(keywords_frame, textvariable=self.keywords_var, width=30).pack(side=tk.LEFT)
+        # // 關鍵字設定
+        _keywords_frame = tk.Frame(iRoot)
+        _keywords_frame.pack(pady=5)
+        tk.Label(_keywords_frame, text="偵測文字(以空白分隔):").pack(side=tk.LEFT)
+        self.keywords_var = tk.StringVar(value=DEFAULT_KEYWORDS)
+        tk.Entry(_keywords_frame, textvariable=self.keywords_var, width=30).pack(side=tk.LEFT)
 
-        self.start_btn = tk.Button(root, text="開始偵測", command=self.start_detection)
+        self.start_btn = tk.Button(iRoot, text="開始偵測", command=self.start_detection)
         self.start_btn.pack(pady=5)
 
-        self.stop_btn = tk.Button(root, text="停止偵測", command=self.stop_detection, state=tk.DISABLED)
+        self.stop_btn = tk.Button(iRoot, text="停止偵測", command=self.stop_detection, state=tk.DISABLED)
         self.stop_btn.pack(pady=5)
 
-        self.log_text = scrolledtext.ScrolledText(root, width=60, height=15, state=tk.DISABLED)
+        self.log_text = scrolledtext.ScrolledText(iRoot, width=60, height=15, state=tk.DISABLED)
         self.log_text.pack(padx=10, pady=10)
 
     def log(self, message: str):
         self.log_text.configure(state=tk.NORMAL)
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        _timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.log_text.insert(tk.END, f"[{_timestamp}] {message}\n")
         self.log_text.see(tk.END)
         self.log_text.configure(state=tk.DISABLED)
 
     def update_mouse_pos(self):
-        x, y = pyautogui.position()
-        self.pos_label.config(text=f"Mouse: ({x}, {y})")
+        _x, _y = pyautogui.position()
+        self.pos_label.config(text=f"Mouse: ({_x}, {_y})")
         self.root.after(100, self.update_mouse_pos)
 
-    def select_region(self, callback):
+    def select_region(self, iCallback):
         self.root.withdraw()
-        screenshot = pyautogui.screenshot()
-        top = tk.Toplevel()
-        top.attributes('-fullscreen', True)
-        canvas = tk.Canvas(top, width=screenshot.width, height=screenshot.height)
-        canvas.pack(fill=tk.BOTH, expand=True)
-        img = ImageTk.PhotoImage(screenshot)
-        canvas.create_image(0, 0, image=img, anchor='nw')
-        coords = {}
-        rect = None
+        _screenshot = pyautogui.screenshot()
+        _top = tk.Toplevel()
+        _top.attributes('-fullscreen', True)
+        _canvas = tk.Canvas(_top, width=_screenshot.width, height=_screenshot.height)
+        _canvas.pack(fill=tk.BOTH, expand=True)
+        _img = ImageTk.PhotoImage(_screenshot)
+        _canvas.create_image(0, 0, image=_img, anchor='nw')
+        _coords = {}
+        _rect = None
 
-        def on_press(event):
-            coords['x1'] = event.x
-            coords['y1'] = event.y
-            nonlocal rect
-            rect = canvas.create_rectangle(event.x, event.y, event.x, event.y, outline='red')
+        def on_press(iEvent):
+            _coords['x1'] = iEvent.x
+            _coords['y1'] = iEvent.y
+            nonlocal _rect
+            _rect = _canvas.create_rectangle(iEvent.x, iEvent.y, iEvent.x, iEvent.y, outline='red')
 
-        def on_move(event):
-            if rect:
-                canvas.coords(rect, coords['x1'], coords['y1'], event.x, event.y)
+        def on_move(iEvent):
+            if _rect:
+                _canvas.coords(_rect, _coords['x1'], _coords['y1'], iEvent.x, iEvent.y)
 
-        def on_release(event):
-            x1, y1 = coords['x1'], coords['y1']
-            x2, y2 = event.x, event.y
-            if x1 > x2:
-                x1, x2 = x2, x1
-            if y1 > y2:
-                y1, y2 = y2, y1
-            top.destroy()
+        def on_release(iEvent):
+            _x1, _y1 = _coords['x1'], _coords['y1']
+            _x2, _y2 = iEvent.x, iEvent.y
+            if _x1 > _x2:
+                _x1, _x2 = _x2, _x1
+            if _y1 > _y2:
+                _y1, _y2 = _y2, _y1
+            _top.destroy()
             self.root.deiconify()
-            callback(x1, y1, x2, y2)
+            iCallback(_x1, _y1, _x2, _y2)
 
-        canvas.bind('<ButtonPress-1>', on_press)
-        canvas.bind('<B1-Motion>', on_move)
-        canvas.bind('<ButtonRelease-1>', on_release)
-        top.grab_set()
-        self.root.wait_window(top)
+        _canvas.bind('<ButtonPress-1>', on_press)
+        _canvas.bind('<B1-Motion>', on_move)
+        _canvas.bind('<ButtonRelease-1>', on_release)
+        _top.grab_set()
+        self.root.wait_window(_top)
 
     def select_detection_region(self):
-        def callback(x1, y1, x2, y2):
-            values = [x1, y1, x2, y2]
-            for var, val in zip(self.region_vars, values):
-                var.set(str(int(val)))
+        def _callback(iX1, iY1, iX2, iY2):
+            _values = [iX1, iY1, iX2, iY2]
+            for _var, _val in zip(self.region_vars, _values):
+                _var.set(str(int(_val)))
 
-        self.select_region(callback)
+        self.select_region(_callback)
 
     def select_button_region(self):
-        def callback(x1, y1, x2, y2):
-            values = [x1, y1, x2, y2]
-            for var, val in zip(self.btn_vars, values):
-                var.set(str(int(val)))
+        def _callback(iX1, iY1, iX2, iY2):
+            _values = [iX1, iY1, iX2, iY2]
+            for _var, _val in zip(self.btn_vars, _values):
+                _var.set(str(int(_val)))
 
-        self.select_region(callback)
+        self.select_region(_callback)
 
     def start_detection(self):
         if not self.running:
-            self.detection_region = tuple(int(v.get()) for v in self.region_vars)
-            self.button_region = tuple(int(v.get()) for v in self.btn_vars)
+            self.detection_region = tuple(int(_v.get()) for _v in self.region_vars)
+            self.button_region = tuple(int(_v.get()) for _v in self.btn_vars)
             try:
                 self.interval = max(1, int(self.interval_var.get()))
             except ValueError:
-                self.interval = 5
-            self.keywords = [k for k in self.keywords_var.get().split() if k]
+                self.interval = int(DEFAULT_INTERVAL)
+            self.keywords = [_k for _k in self.keywords_var.get().split() if _k]
 
             self.running = True
             self.start_btn.configure(state=tk.DISABLED)
@@ -159,18 +171,18 @@ class DetectBossApp:
 
     def detect_loop(self):
         while self.running:
-            img = ImageGrab.grab(bbox=self.detection_region)
-            text = pytesseract.image_to_string(img, lang='chi_tra')
-            self.log(f"OCR: {text.strip()}")
+            _img = ImageGrab.grab(bbox=self.detection_region)
+            _text = pytesseract.image_to_string(_img, lang='chi_tra')
+            self.log(f"OCR: {_text.strip()}")
 
-            if all(k in text for k in self.keywords):
+            if all(_k in _text for _k in self.keywords):
                 self.log("發現王!")
                 winsound.PlaySound('SystemExclamation', winsound.SND_ALIAS)
                 messagebox.showinfo("通知", "偵測到菇菇王出現!")
             else:
-                cx = (self.button_region[0] + self.button_region[2]) // 2
-                cy = (self.button_region[1] + self.button_region[3]) // 2
-                pyautogui.click(cx, cy)
+                _cx = (self.button_region[0] + self.button_region[2]) // 2
+                _cy = (self.button_region[1] + self.button_region[3]) // 2
+                pyautogui.click(_cx, _cy)
                 self.switch_count += 1
                 self.log(f"未發現王，執行換頻 {self.switch_count} 次")
 
@@ -181,7 +193,7 @@ class DetectBossApp:
 
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    app = DetectBossApp(root)
-    root.mainloop()
+    _root = tk.Tk()
+    _app = DetectBossApp(_root)
+    _root.mainloop()
 
